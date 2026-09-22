@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catch the Falling Elements</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background-color: #0b0c10;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        #game-container {
+            position: relative;
+            box-shadow: 0 0 30px rgba(0, 225, 255, 0.2);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px solid #1f2833;
+        }
+
+        canvas {
+            display: block;
+            background: radial-gradient(circle at center, #111827 0%, #030712 100%);
+        }
+
+        #ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+        }
+
+        .hud-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            font-size: 16px;
+            font-weight: bold;
+            text-shadow: 0 0 8px rgba(0,0,0,0.8);
+        }
+
+        .score-box {
+            color: #f3f4f6;
+        }
+
+        .high-score {
+            font-size: 13px;
+            color: #fbbf24;
+        }
+
+        .time-box {
+            text-align: center;
+            font-size: 14px;
+            color: #38bdf8;
+        }
+
+        .combo-box {
+            text-align: right;
+            color: #fbbf24;
+        }
+
+        .fury-bar-container {
+            width: 100px;
+            height: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+            margin-top: 4px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            margin-left: auto;
+        }
+
+        .fury-bar {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #ff4500, #ff8c00, #ffff00);
+            box-shadow: 0 0 10px #ff4500;
+            transition: width 0.1s linear;
+        }
+
+        #game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(3, 7, 18, 0.88);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            pointer-events: auto;
+        }
+
+        #game-over-screen.hidden {
+            display: none;
+        }
+
+        h1 {
+            font-size: 36px;
+            color: #ef4444;
+            text-shadow: 0 0 15px rgba(239, 68, 68, 0.6);
+        }
+
+        .stat-line {
+            font-size: 18px;
+            color: #e5e7eb;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: white;
+            border: none;
+            padding: 12px 28px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(37, 99, 235, 0.4);
+            transition: transform 0.1s, box-shadow 0.1s;
+            margin-top: 10px;
+        }
+
+        .btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(37, 99, 235, 0.7);
+        }
+
+        .controls-hint {
+            position: absolute;
+            bottom: 10px;
+            font-size: 12px;
+            color: #9ca3af;
+            text-align: center;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="game-container">
+        <canvas id="gameCanvas" width="480" height="640"></canvas>
+        
+        <div id="ui-overlay">
+            <div class="hud-top">
+                <div class="score-box">
+                    <div>SCORE: <span id="scoreText">0</span></div>
+                    <div class="high-score">HIGH: <span id="highScoreText">0</span></div>
+                    <div style="font-size: 13px; color: #ef4444; margin-top: 2px;">LIVES: <span id="livesText">❤️❤️❤️</span></div>
+                </div>
+
+                <div class="time-box">
+                    <div>TIME</div>
+                    <div id="timeText" style="font-weight: bold; font-size: 16px;">00:00:00</div>
+                </div>
+
+                <div class="combo-box">
+                    <div>COMBO: x<span id="comboText">1</span></div>
+                    <div style="font-size: 11px; color: #9ca3af;">FURY</div>
+                    <div class="fury-bar-container">
+                        <div id="furyBar" class="fury-bar"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="controls-hint">
+                [SPACE / CLICK] Switch Mode | [MOUSE / A-D / ARROWS] Move
+            </div>
+
+            <div id="game-over-screen">
+                <h1>GAME OVER</h1>
+                <div class="stat-line">Final Score: <span id="finalScore" style="color: #4ade80;">0</span></div>
+                <div class="stat-line">High Score: <span id="finalHighScore" style="color: #fbbf24;">0</span></div>
+                <div class="stat-line">Time Played: <span id="finalTime" style="color: #38bdf8;">00:00:00</span></div>
+                <button class="btn" onclick="resetGame()">PLAY AGAIN</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // UI Elements
+        const scoreText = document.getElementById('scoreText');
+        const highScoreText = document.getElementById('highScoreText');
+        const timeText = document.getElementById('timeText');
+        const livesText = document.getElementById('livesText');
+        const comboText = document.getElementById('comboText');
+        const furyBar = document.getElementById('furyBar');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const finalScoreText = document.getElementById('finalScore');
+        const finalHighScoreText = document.getElementById('finalHighScore');
+        const finalTimeText = document.getElementById('finalTime');
+
+        // High Score setup (saved in localStorage)
+        let highScore = parseInt(localStorage.getItem('elemental_game_highscore')) || 0;
+
+        // Game State Variables
+        let score = 0;
+        let lives = 3;
+        let combo = 1;
+        let furyEnergy = 0;
+        let isFuryActive = false;
+        let furyTimer = 0;
+        let isGameOver = false;
+        
+        // Timer & Speed Acceleration Logic
+        let secondsPlayed = 0;
+        let timeInterval = null;
+        let globalSpeedMultiplier = 1.0;
+        let spawnTimer = 0;
+        let baseSpawnInterval = 60; // Base rate in frames
+
+        // Player Configuration
+        const player = {
+            x: canvas.width / 2,
+            y: canvas.height - 50,
+            radius: 30,
+            element: 'FIRE',
+            speed: 8
+        };
+
+        // Entities
+        let cores = [];
+        let particles = [];
+        let shockwaves = [];
+
+        // Keyboard State
+        const keys = {};
+
+        // Event Listeners
+        window.addEventListener('keydown', (e) => {
+            keys[e.code] = true;
+            if (e.code === 'Space') {
+                switchPlayerElement();
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            keys[e.code] = false;
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            player.x = e.clientX - rect.left;
+        });
+
+        canvas.addEventListener('click', () => {
+            if (!isGameOver) switchPlayerElement();
+        });
+
+        function startTimer() {
+            if (timeInterval) clearInterval(timeInterval);
+            timeInterval = setInterval(() => {
+                if (!isGameOver) {
+                    secondsPlayed++;
+                    // Accelerate speed every single second (+2.5% speed increase per second)
+                    globalSpeedMultiplier += 0.025; 
+                    updateTimerDisplay();
+                }
+            }, 1000);
+        }
+
+        function formatTime(seconds) {
+            const hrs = Math.floor(seconds / 3600);
+            const mins = Math.floor((seconds % 3600) / 60);
+            const secs = seconds % 60;
+            return [hrs, mins, secs].map(v => v < 10 ? "0" + v : v).join(":");
+        }
+
+        function updateTimerDisplay() {
+            timeText.innerText = formatTime(secondsPlayed);
+        }
+
+        function switchPlayerElement() {
+            player.element = player.element === 'FIRE' ? 'ICE' : 'FIRE';
+            createShockwave(player.x, player.y, getElementColor(player.element));
+        }
+
+        function getElementColor(element) {
+            return element === 'FIRE' ? '#ff4500' : '#00f0ff';
+        }
+
+        // Core Spawning
+        function spawnCore() {
+            const radius = 14;
+            const x = Math.random() * (canvas.width - radius * 2) + radius;
+            const element = Math.random() > 0.5 ? 'FIRE' : 'ICE';
+            
+            // Base speed multiplied by the dynamic acceleration multiplier
+            const baseSpeed = 2 + Math.random() * 2;
+            const speed = baseSpeed * globalSpeedMultiplier;
+
+            cores.push({
+                x: x,
+                y: -radius,
+                radius: radius,
+                element: element,
+                speed: speed,
+                rotation: 0
+            });
+        }
+
+        // Particle Effects
+        function createExplosion(x, y, color, count = 15) {
+            for (let i = 0; i < count; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speed = Math.random() * 5 + 2;
+                particles.push({
+                    x: x,
+                    y: y,
+                    vx: Math.cos(angle) * speed,
+                    vy: Math.sin(angle) * speed,
+                    radius: Math.random() * 4 + 2,
+                    color: color,
+                    alpha: 1,
+                    decay: Math.random() * 0.03 + 0.01
+                });
+            }
+        }
+
+        function createShockwave(x, y, color) {
+            shockwaves.push({
+                x: x,
+                y: y,
+                radius: 10,
+                maxRadius: 60,
+                color: color,
+                alpha: 1
+            });
+        }
+
+        // Main Logic Update Loop
+        function update() {
+            if (isGameOver) return;
+
+            // Player keyboard movement
+            if (keys['ArrowLeft'] || keys['KeyA']) player.x -= player.speed;
+            if (keys['ArrowRight'] || keys['KeyD']) player.x += player.speed;
+
+            // Bound player within canvas
+            player.x = Math.max(player.radius, Math.min(canvas.width - player.radius, player.x));
+
+            // Fury Mode management
+            if (isFuryActive) {
+                furyTimer--;
+                furyEnergy = (furyTimer / 300) * 100;
+                if (furyTimer <= 0) {
+                    isFuryActive = false;
+                    furyEnergy = 0;
+                }
+            }
+
+            furyBar.style.width = `${furyEnergy}%`;
+
+            // Spawning Mechanism scaled by speed multiplier
+            spawnTimer++;
+            const currentSpawnInterval = Math.max(15, baseSpawnInterval / globalSpeedMultiplier);
+            if (spawnTimer >= currentSpawnInterval) {
+                spawnCore();
+                spawnTimer = 0;
+            }
+
+            // Cores Update
+            for (let i = cores.length - 1; i >= 0; i--) {
+                const core = cores[i];
+                core.y += core.speed;
+                core.rotation += 0.05 * globalSpeedMultiplier;
+
+                // Player Collision Detection
+                const dist = Math.hypot(player.x - core.x, player.y - core.y);
+                if (dist < player.radius + core.radius) {
+                    if (isFuryActive || core.element === player.element) {
+                        // Successful Match
+                        score += 10 * combo;
+                        combo++;
+                        
+                        if (score > highScore) {
+                            highScore = score;
+                            localStorage.setItem('elemental_game_highscore', highScore);
+                        }
+
+                        if (!isFuryActive) {
+                            furyEnergy += 10;
+                            if (furyEnergy >= 100) {
+                                isFuryActive = true;
+                                furyTimer = 300;
+                                createShockwave(player.x, player.y, '#ffffff');
+                            }
+                        }
+
+                        createExplosion(core.x, core.y, getElementColor(core.element), 20);
+                    } else {
+                        // Wrong Match
+                        lives--;
+                        combo = 1;
+                        furyEnergy = Math.max(0, furyEnergy - 20);
+                        createExplosion(core.x, core.y, '#ff0000', 25);
+                        
+                        if (lives <= 0) {
+                            endGame();
+                        }
+                    }
+
+                    cores.splice(i, 1);
+                    updateHUD();
+                    continue;
+                }
+
+                // Off-screen Miss Check
+                if (core.y - core.radius > canvas.height) {
+                    combo = 1;
+                    updateHUD();
+                    cores.splice(i, 1);
+                }
+            }
+
+            // Particles Update
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= p.decay;
+
+                if (p.alpha <= 0) {
+                    particles.splice(i, 1);
+                }
+            }
+
+            // Shockwaves Update
+            for (let i = shockwaves.length - 1; i >= 0; i--) {
+                const sw = shockwaves[i];
+                sw.radius += 3;
+                sw.alpha -= 0.04;
+
+                if (sw.alpha <= 0 || sw.radius >= sw.maxRadius) {
+                    shockwaves.splice(i, 1);
+                }
+            }
+        }
+
+        // Render Graphics Loop
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Shockwaves
+            shockwaves.forEach(sw => {
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2);
+                ctx.strokeStyle = sw.color;
+                ctx.lineWidth = 3;
+                ctx.globalAlpha = Math.max(0, sw.alpha);
+                ctx.stroke();
+                ctx.restore();
+            });
+
+            // Particles
+            particles.forEach(p => {
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = Math.max(0, p.alpha);
+                ctx.shadowColor = p.color;
+                ctx.shadowBlur = 8;
+                ctx.fill();
+                ctx.restore();
+            });
+
+            // Cores
+            cores.forEach(core => {
+                ctx.save();
+                ctx.translate(core.x, core.y);
+                ctx.rotate(core.rotation);
+
+                const color = getElementColor(core.element);
+                
+                ctx.shadowColor = color;
+                ctx.shadowBlur = 12;
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                
+                if (core.element === 'FIRE') {
+                    ctx.moveTo(0, -core.radius - 2);
+                    ctx.lineTo(core.radius, 0);
+                    ctx.lineTo(0, core.radius + 2);
+                    ctx.lineTo(-core.radius, 0);
+                } else {
+                    for (let i = 0; i < 6; i++) {
+                        const angle = (Math.PI / 3) * i;
+                        const x = core.radius * Math.cos(angle);
+                        const y = core.radius * Math.sin(angle);
+                        if (i === 0) ctx.moveTo(x, y);
+                        else ctx.lineTo(x, y);
+                    }
+                }
+                ctx.closePath();
+                ctx.fill();
+
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(0, 0, core.radius * 0.4, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.restore();
+            });
+
+            // Player / Catcher
+            ctx.save();
+            ctx.translate(player.x, player.y);
+
+            const activeColor = isFuryActive ? '#ffff00' : getElementColor(player.element);
+
+            ctx.shadowColor = activeColor;
+            ctx.shadowBlur = isFuryActive ? 25 : 15;
+
+            ctx.beginPath();
+            ctx.arc(0, 0, player.radius, 0, Math.PI * 2);
+            ctx.fillStyle = activeColor;
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.arc(0, 0, player.radius * 0.6, 0, Math.PI * 2);
+            ctx.fillStyle = '#0b0c10';
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.arc(0, 0, player.radius * 0.3, 0, Math.PI * 2);
+            ctx.fillStyle = '#ffffff';
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function updateHUD() {
+            scoreText.innerText = score;
+            highScoreText.innerText = highScore;
+            comboText.innerText = combo;
+            livesText.innerText = '❤️'.repeat(Math.max(0, lives));
+        }
+
+        function endGame() {
+            isGameOver = true;
+            clearInterval(timeInterval);
+            
+            finalScoreText.innerText = score;
+            finalHighScoreText.innerText = highScore;
+            finalTimeText.innerText = formatTime(secondsPlayed);
+            
+            gameOverScreen.classList.remove('hidden');
+        }
+
+        function resetGame() {
+            score = 0;
+            lives = 3;
+            combo = 1;
+            furyEnergy = 0;
+            isFuryActive = false;
+            furyTimer = 0;
+            isGameOver = false;
+            secondsPlayed = 0;
+            globalSpeedMultiplier = 1.0;
+            cores = [];
+            particles = [];
+            shockwaves = [];
+            spawnTimer = 0;
+            
+            updateHUD();
+            updateTimerDisplay();
+            gameOverScreen.classList.add('hidden');
+            startTimer();
+        }
+
+        // Game Loop
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        // Initialize HUD & Start Game Timer
+        gameOverScreen.classList.add('hidden');
+        updateHUD();
+        startTimer();
+        loop();
+    </script>
+</body>
+</html>

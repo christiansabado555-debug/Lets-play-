@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catch the Falling Elements - Main Menu</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body {
+            background-color: #0b0c10;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        #menu-container {
+            position: relative;
+            width: 480px;
+            height: 640px;
+            background: radial-gradient(circle at center, #111827 0%, #030712 100%);
+            box-shadow: 0 0 30px rgba(0, 225, 255, 0.2);
+            border-radius: 12px;
+            border: 2px solid #1f2833;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            padding: 50px 30px;
+            text-align: center;
+        }
+
+        .title-group {
+            margin-top: 20px;
+        }
+
+        .game-title {
+            font-size: 38px;
+            font-weight: 900;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            background: linear-gradient(135deg, #ff4500, #00f0ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            text-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
+            line-height: 1.2;
+        }
+
+        .game-subtitle {
+            font-size: 14px;
+            color: #9ca3af;
+            margin-top: 10px;
+            letter-spacing: 1px;
+        }
+
+        .highscore-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 15px 30px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+
+        .highscore-card label {
+            font-size: 12px;
+            color: #fbbf24;
+            letter-spacing: 1.5px;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .highscore-card span {
+            font-size: 28px;
+            font-weight: bold;
+            color: #ffffff;
+        }
+
+        .action-group {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .btn-play {
+            width: 80%;
+            background: linear-gradient(135deg, #ff4500, #d97706);
+            color: white;
+            border: none;
+            padding: 16px 0;
+            font-size: 22px;
+            font-weight: bold;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 0 20px rgba(255, 69, 0, 0.5);
+            transition: all 0.2s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-play:hover {
+            transform: translateY(-3px) scale(1.03);
+            box-shadow: 0 0 30px rgba(255, 69, 0, 0.8);
+        }
+
+        .instructions {
+            background: rgba(17, 24, 39, 0.6);
+            border-radius: 8px;
+            padding: 15px;
+            font-size: 12px;
+            color: #d1d5db;
+            line-height: 1.6;
+            width: 100%;
+        }
+
+        .instructions strong {
+            color: #38bdf8;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="menu-container">
+        <div class="title-group">
+            <h1 class="game-title">CATCH THE<br>ELEMENTS</h1>
+            <p class="game-subtitle">ARCADE SURVIVAL</p>
+            
+            <div class="highscore-card">
+                <label>PERSONAL BEST</label>
+                <span id="menuHighScore">0</span>
+            </div>
+        </div>
+
+        <div class="action-group">
+            <a href="play.html" class="btn-play">START GAME</a>
+
+            <div class="instructions">
+                <strong>HOW TO PLAY:</strong><br>
+                • <strong>SPACE / CLICK</strong> to switch element mode.<br>
+                • Match <span style="color:#ff4500;">FIRE</span> & <span style="color:#00f0ff;">ICE</span> cores to survive.<br>
+                • Dynamic Speed increases every second!
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Retrieve High Score saved by game.html from localStorage
+        const savedHighScore = localStorage.getItem('elemental_game_highscore') || 0;
+        document.getElementById('menuHighScore').innerText = savedHighScore;
+    </script>
+</body>
+</html>
