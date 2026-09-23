@@ -8,7 +8,7 @@
     <center>
         <table border="5">
             <tr>
-                <th><a href="game.html">ENTER</a></th>
+                <th><a href="game_hub.html">ENTER</a></th>
             </tr>
         </table>
     </center>
