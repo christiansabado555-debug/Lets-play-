@@ -1,0 +1,1595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Food Truck Burger Simulator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            user-select: none;
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        /* UI Layer */
+        .ui-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 10;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .interactive {
+            pointer-events: auto;
+        }
+
+        /* Header Bar */
+        .header-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+
+        .stat-card {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 10px 20px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .stat-card i {
+            font-size: 1.5rem;
+        }
+
+        .stat-val {
+            font-weight: 800;
+            font-size: 1.25rem;
+        }
+
+        .icon-btn {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            font-size: 1.2rem;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .icon-btn:hover {
+            background: rgba(30, 41, 59, 0.95);
+            transform: translateY(-2px);
+            border-color: rgba(255, 255, 255, 0.4);
+        }
+
+        .icon-btn:active {
+            transform: translateY(0);
+        }
+
+        /* Order Bubble */
+        .order-bubble {
+            position: absolute;
+            top: 15%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 255, 255, 0.95);
+            color: #0f172a;
+            padding: 16px 24px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            min-width: 240px;
+            border: 3px solid #38bdf8;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .order-bubble.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .order-bubble::after {
+            content: '';
+            position: absolute;
+            bottom: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 12px 12px 0;
+            border-style: solid;
+            border-color: rgba(255, 255, 255, 0.95) transparent;
+            display: block;
+            width: 0;
+        }
+
+        .patience-bar-container {
+            width: 100%;
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .patience-bar {
+            height: 100%;
+            width: 100%;
+            background: #22c55e;
+            transition: width 0.1s linear, background-color 0.3s ease;
+        }
+
+        .order-items {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .order-tag {
+            background: #f1f5f9;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #334155;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* Tray / Controls at Bottom */
+        .bottom-controls {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            width: 100%;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .ingredient-tray {
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 20px;
+            padding: 12px;
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            width: 100%;
+            justify-content: center;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        .ing-btn {
+            background: linear-gradient(135deg, #334155 0%, #1e293b 100%);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: white;
+            padding: 10px 14px;
+            border-radius: 12px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            min-width: 70px;
+            transition: all 0.15s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+
+        .ing-btn:hover {
+            background: linear-gradient(135deg, #475569 0%, #334155 100%);
+            transform: translateY(-3px);
+            border-color: rgba(255, 255, 255, 0.3);
+        }
+
+        .ing-btn:active {
+            transform: translateY(1px);
+        }
+
+        .ing-btn i {
+            font-size: 1.4rem;
+        }
+
+        .ing-btn span {
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+
+        .action-tray {
+            display: flex;
+            gap: 16px;
+        }
+
+        .btn-action {
+            padding: 12px 28px;
+            border-radius: 14px;
+            font-weight: 700;
+            font-size: 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: none;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .btn-serve {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+            color: white;
+        }
+
+        .btn-serve:hover {
+            background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(34, 197, 94, 0.4);
+        }
+
+        .btn-trash {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: white;
+        }
+
+        .btn-trash:hover {
+            background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+        }
+
+        /* Modal Settings */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(8px);
+            z-index: 100;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-card {
+            background: #1e293b;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 20px;
+            width: 90%;
+            max-width: 420px;
+            padding: 24px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.6);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            transform: scale(0.9);
+            transition: transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .modal-overlay.active .modal-card {
+            transform: scale(1);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            padding-bottom: 12px;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            font-size: 1.4rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .setting-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .setting-label {
+            display: flex;
+            justify-content: space-between;
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: #cbd5e1;
+        }
+
+        .setting-control {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        input[type=range] {
+            flex: 1;
+            accent-color: #38bdf8;
+            height: 6px;
+            border-radius: 3px;
+            background: #334155;
+            outline: none;
+        }
+
+        .toggle-btn {
+            background: #334155;
+            border: 1px solid rgba(255,255,255,0.1);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 10px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toggle-btn.on {
+            background: #0284c7;
+            border-color: #38bdf8;
+        }
+
+        /* Toast Notification */
+        .toast {
+            position: fixed;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-20px);
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid #38bdf8;
+            color: #f8fafc;
+            padding: 10px 20px;
+            border-radius: 10px;
+            font-weight: 600;
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.3s ease;
+            z-index: 50;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        .toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+
+    <!-- UI Layer -->
+    <div class="ui-layer">
+        <!-- Top Navigation / Stats -->
+        <div class="header-bar">
+            <div style="display: flex; gap: 12px;">
+                <div class="stat-card">
+                    <i class="ph-duotone ph-currency-dollar" style="color: #4ade80;"></i>
+                    <div>
+                        <div style="font-size: 0.7rem; color: #94a3b8; text-transform: uppercase;">Earnings</div>
+                        <div class="stat-val" id="earnings-val">$0</div>
+                    </div>
+                </div>
+
+                <div class="stat-card">
+                    <i class="ph-duotone ph-smiley" style="color: #facc15;"></i>
+                    <div>
+                        <div style="font-size: 0.7rem; color: #94a3b8; text-transform: uppercase;">Served</div>
+                        <div class="stat-val" id="served-val">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top Right Settings Button -->
+            <button class="icon-btn interactive" id="btn-open-settings" title="Settings">
+                <i class="ph-bold ph-gear"></i>
+            </button>
+        </div>
+
+        <!-- Customer Order Bubble -->
+        <div class="order-bubble" id="order-bubble">
+            <div style="font-weight: 700; font-size: 0.9rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Customer Order</div>
+            <div class="order-items" id="order-items">
+                <!-- Dynamic Order Badges -->
+            </div>
+            <div class="patience-bar-container">
+                <div class="patience-bar" id="patience-bar"></div>
+            </div>
+        </div>
+
+        <!-- Bottom Controls -->
+        <div class="bottom-controls interactive">
+            <div class="ingredient-tray">
+                <button class="ing-btn" id="btn-bun-bottom" onclick="addIngredient('bun_bottom')">
+                    <i class="ph-duotone ph-bread" style="color: #f59e0b;"></i>
+                    <span>Bottom Bun</span>
+                </button>
+                <button class="ing-btn" id="btn-patty-raw" onclick="addRawPattyToGrill()">
+                    <i class="ph-duotone ph-cooking-pot" style="color: #ef4444;"></i>
+                    <span>Grill Patty</span>
+                </button>
+                <button class="ing-btn" id="btn-cheese" onclick="addIngredient('cheese')">
+                    <i class="ph-duotone ph-square" style="color: #facc15;"></i>
+                    <span>Cheese</span>
+                </button>
+                <button class="ing-btn" id="btn-lettuce" onclick="addIngredient('lettuce')">
+                    <i class="ph-duotone ph-plant" style="color: #4ade80;"></i>
+                    <span>Lettuce</span>
+                </button>
+                <button class="ing-btn" id="btn-tomato" onclick="addIngredient('tomato')">
+                    <i class="ph-duotone ph-circle" style="color: #f87171;"></i>
+                    <span>Tomato</span>
+                </button>
+                <button class="ing-btn" id="btn-pickles" onclick="addIngredient('pickles')">
+                    <i class="ph-duotone ph-circle-dashed" style="color: #15803d;"></i>
+                    <span>Pickles</span>
+                </button>
+                <button class="ing-btn" id="btn-bacon" onclick="addIngredient('bacon')">
+                    <i class="ph-duotone ph-rows" style="color: #b91c1c;"></i>
+                    <span>Bacon</span>
+                </button>
+                <button class="ing-btn" id="btn-ketchup" onclick="addIngredient('ketchup')">
+                    <i class="ph-duotone ph-drop" style="color: #dc2626;"></i>
+                    <span>Ketchup</span>
+                </button>
+                <button class="ing-btn" id="btn-mustard" onclick="addIngredient('mustard')">
+                    <i class="ph-duotone ph-drop" style="color: #eab308;"></i>
+                    <span>Mustard</span>
+                </button>
+                <button class="ing-btn" id="btn-bun-top" onclick="addIngredient('bun_top')">
+                    <i class="ph-duotone ph-bread" style="color: #d97706;"></i>
+                    <span>Top Bun</span>
+                </button>
+            </div>
+
+            <div class="action-tray">
+                <button class="btn-action btn-serve" onclick="serveOrder()">
+                    <i class="ph-bold ph-check"></i> Serve Order
+                </button>
+                <button class="btn-action btn-trash" onclick="trashPlate()">
+                    <i class="ph-bold ph-trash"></i> Clear Plate
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal Overlay -->
+    <div class="modal-overlay" id="settings-modal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h2><i class="ph-duotone ph-gear" style="color: #38bdf8;"></i> Settings</h2>
+                <button class="icon-btn" id="btn-close-settings" style="width: 32px; height: 32px; font-size: 1rem;">
+                    <i class="ph-bold ph-x"></i>
+                </button>
+            </div>
+
+            <!-- Master/SFX Volume -->
+            <div class="setting-group">
+                <div class="setting-label">
+                    <span>Sound Effects Volume</span>
+                    <span id="sfx-vol-text">80%</span>
+                </div>
+                <div class="setting-control">
+                    <i class="ph-bold ph-speaker-high" style="color: #94a3b8;"></i>
+                    <input type="range" id="sfx-volume" min="0" max="100" value="80">
+                </div>
+            </div>
+
+            <!-- Music Volume -->
+            <div class="setting-group">
+                <div class="setting-label">
+                    <span>Music Volume</span>
+                    <span id="music-vol-text">50%</span>
+                </div>
+                <div class="setting-control">
+                    <i class="ph-bold ph-music-notes" style="color: #94a3b8;"></i>
+                    <input type="range" id="music-volume" min="0" max="100" value="50">
+                </div>
+            </div>
+
+            <!-- Music Toggle -->
+            <div class="setting-group">
+                <div class="setting-label">
+                    <span>Background Music</span>
+                </div>
+                <div style="display: flex; justify-content: flex-start; margin-top: 4px;">
+                    <button class="toggle-btn on" id="btn-toggle-music">
+                        <i class="ph-bold ph-speaker-simple-high"></i> Music: ON
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div class="toast" id="toast-msg">Notification Message</div>
+<!-- ... existing code ... -->
+    <script>
+        // Audio Engine using Web Audio API
+        class AudioEngine {
+            constructor() {
+                this.ctx = null;
+                this.sfxGain = null;
+                this.musicGain = null;
+                this.masterGain = null;
+                
+                this.sfxVolume = 0.8;
+                this.musicVolume = 0.5;
+                this.musicEnabled = true;
+
+                this.isPlayingMusic = false;
+                this.musicStep = 0;
+                this.musicTimer = null;
+            }
+
+            init() {
+                if (this.ctx) return;
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                this.ctx = new AudioCtx();
+
+                this.masterGain = this.ctx.createGain();
+                this.masterGain.connect(this.ctx.destination);
+
+                this.sfxGain = this.ctx.createGain();
+                this.sfxGain.gain.value = this.sfxVolume;
+                this.sfxGain.connect(this.masterGain);
+
+                this.musicGain = this.ctx.createGain();
+                this.musicGain.gain.value = this.musicEnabled ? this.musicVolume : 0;
+                this.musicGain.connect(this.masterGain);
+
+                this.startMusicLoop();
+            }
+
+            setSFXVolume(val) {
+                this.sfxVolume = val;
+                if (this.sfxGain) this.sfxGain.gain.value = val;
+            }
+
+            setMusicVolume(val) {
+                this.musicVolume = val;
+                if (this.musicGain && this.musicEnabled) {
+                    this.musicGain.gain.value = val;
+                }
+            }
+
+            setMusicEnabled(enabled) {
+                this.musicEnabled = enabled;
+                if (this.musicGain) {
+                    this.musicGain.gain.value = enabled ? this.musicVolume : 0;
+                }
+            }
+
+            // Synthesized Sound Effects
+            playSnap() {
+                if (!this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const g = this.ctx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(300, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(120, this.ctx.currentTime + 0.08);
+                g.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                g.gain.linearRampToValueAtTime(0.01, this.ctx.currentTime + 0.08);
+                osc.connect(g);
+                g.connect(this.sfxGain);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.08);
+            }
+
+            playSizzle() {
+                if (!this.ctx) return;
+                const bufferSize = this.ctx.sampleRate * 0.15;
+                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+                const noise = this.ctx.createBufferSource();
+                noise.buffer = buffer;
+
+                const filter = this.ctx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.frequency.value = 1200;
+                filter.Q.value = 3;
+
+                const g = this.ctx.createGain();
+                g.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                g.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+
+                noise.connect(filter);
+                filter.connect(g);
+                g.connect(this.sfxGain);
+                noise.start();
+            }
+
+            playCoin() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const g = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(987.77, now); // B5
+                osc.frequency.setValueAtTime(1318.51, now + 0.08); // E6
+                g.gain.setValueAtTime(0.25, now);
+                g.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
+                osc.connect(g);
+                g.connect(this.sfxGain);
+                osc.start();
+                osc.stop(now + 0.35);
+            }
+
+            playFail() {
+                if (!this.ctx) return;
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const g = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(180, now);
+                osc.frequency.linearRampToValueAtTime(80, now + 0.3);
+                g.gain.setValueAtTime(0.2, now);
+                g.gain.linearRampToValueAtTime(0.01, now + 0.3);
+                osc.connect(g);
+                g.connect(this.sfxGain);
+                osc.start();
+                osc.stop(now + 0.3);
+            }
+
+            // Upbeat Chiptune/Lounge Synthesizer Loop
+            startMusicLoop() {
+                if (this.isPlayingMusic) return;
+                this.isPlayingMusic = true;
+
+                // Simple pleasant chord progression: Cmaj7 -> Am7 -> Dm7 -> G7
+                const scale = [
+                    261.63, 329.63, 392.00, 493.88, // Cmaj7
+                    220.00, 261.63, 329.63, 392.00, // Am7
+                    293.66, 349.23, 440.00, 523.25, // Dm7
+                    196.00, 246.94, 293.66, 349.23  // G7
+                ];
+
+                const melody = [
+                    523.25, 0, 659.25, 523.25, 783.99, 0, 659.25, 0,
+                    440.00, 523.25, 659.25, 0, 523.25, 440.00, 392.00, 0
+                ];
+
+                const tempo = 180; // ms per step
+                this.musicStep = 0;
+
+                const stepFunc = () => {
+                    if (!this.isPlayingMusic) return;
+
+                    const now = this.ctx.currentTime;
+                    const chordGroup = Math.floor((this.musicStep / 8) % 4);
+                    const chordBase = chordGroup * 4;
+
+                    // Play soft chord synth
+                    if (this.musicStep % 4 === 0) {
+                        for (let i = 0; i < 3; i++) {
+                            const osc = this.ctx.createOscillator();
+                            const g = this.ctx.createGain();
+                            osc.type = 'sine';
+                            osc.frequency.value = scale[chordBase + i];
+                            g.gain.setValueAtTime(0.03, now);
+                            g.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+                            osc.connect(g);
+                            g.connect(this.musicGain);
+                            osc.start(now);
+                            osc.stop(now + 0.6);
+                        }
+                    }
+
+                    // Play Lead Note
+                    const note = melody[this.musicStep % melody.length];
+                    if (note > 0) {
+                        const mOsc = this.ctx.createOscillator();
+                        const mGain = this.ctx.createGain();
+                        mOsc.type = 'triangle';
+                        mOsc.frequency.value = note;
+                        mGain.gain.setValueAtTime(0.05, now);
+                        mGain.gain.exponentialRampToValueAtTime(0.002, now + 0.2);
+                        mOsc.connect(mGain);
+                        mGain.connect(this.musicGain);
+                        mOsc.start(now);
+                        mOsc.stop(now + 0.2);
+                    }
+
+                    this.musicStep++;
+                    this.musicTimer = setTimeout(stepFunc, tempo);
+                };
+
+                stepFunc();
+            }
+        }
+
+        const audio = new AudioEngine();
+
+        // UI Helpers & Settings Bindings
+        function showToast(msg) {
+            const toast = document.getElementById('toast-msg');
+            toast.innerText = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2500);
+        }
+
+        // Settings Modal Controls
+        const settingsModal = document.getElementById('settings-modal');
+        const btnOpenSettings = document.getElementById('btn-open-settings');
+        const btnCloseSettings = document.getElementById('btn-close-settings');
+        const sfxSlider = document.getElementById('sfx-volume');
+        const musicSlider = document.getElementById('music-volume');
+        const sfxVolText = document.getElementById('sfx-vol-text');
+        const musicVolText = document.getElementById('music-vol-text');
+        const btnToggleMusic = document.getElementById('btn-toggle-music');
+
+        btnOpenSettings.addEventListener('click', () => {
+            audio.init();
+            settingsModal.classList.add('active');
+        });
+
+        btnCloseSettings.addEventListener('click', () => {
+            settingsModal.classList.remove('active');
+        });
+
+        sfxSlider.addEventListener('input', (e) => {
+            const val = e.target.value;
+            sfxVolText.innerText = `${val}%`;
+            audio.setSFXVolume(val / 100);
+        });
+
+        musicSlider.addEventListener('input', (e) => {
+            const val = e.target.value;
+            musicVolText.innerText = `${val}%`;
+            audio.setMusicVolume(val / 100);
+        });
+
+        btnToggleMusic.addEventListener('click', () => {
+            audio.musicEnabled = !audio.musicEnabled;
+            audio.setMusicEnabled(audio.musicEnabled);
+            if (audio.musicEnabled) {
+                btnToggleMusic.classList.add('on');
+                btnToggleMusic.innerHTML = `<i class="ph-bold ph-speaker-simple-high"></i> Music: ON`;
+            } else {
+                btnToggleMusic.classList.remove('on');
+                btnToggleMusic.innerHTML = `<i class="ph-bold ph-speaker-simple-slash"></i> Music: OFF`;
+            }
+        });
+
+        // Initialize Audio on First User Click anywhere
+        window.addEventListener('click', () => audio.init(), { once: true });
+
+        // Game State Variables (NO Timer/Shift limits)
+        let gameState = {
+            earnings: 0,
+            servedCount: 0,
+            currentOrder: null,
+            patience: 100,
+            patienceMax: 100,
+            plateStack: [],
+            grillPatties: []
+        };
+
+        // Available Ingredients Configuration
+        const INGREDIENTS = {
+            bun_bottom: { name: 'Bottom Bun', color: 0xd97706, height: 0.15, radius: 0.8 },
+            patty: { name: 'Cooked Patty', color: 0x5c2c16, height: 0.18, radius: 0.75 },
+            cheese: { name: 'Cheese', color: 0xfacc15, height: 0.05, radius: 0.82 },
+            lettuce: { name: 'Lettuce', color: 0x22c55e, height: 0.06, radius: 0.85 },
+            tomato: { name: 'Tomato', color: 0xef4444, height: 0.08, radius: 0.75 },
+            pickles: { name: 'Pickles', color: 0x15803d, height: 0.05, radius: 0.7 },
+            bacon: { name: 'Bacon', color: 0xb91c1c, height: 0.05, radius: 0.8 },
+            ketchup: { name: 'Ketchup', color: 0xdc2626, height: 0.03, radius: 0.65 },
+            mustard: { name: 'Mustard', color: 0xeab308, height: 0.03, radius: 0.65 },
+            bun_top: { name: 'Top Bun', color: 0xd97706, height: 0.35, radius: 0.8 }
+        };
+
+        let scene, camera, renderer;
+        let plateGroup, grillGroup, npcGroup;
+        let activeNPCMesh = null;
+        let activeNPCData = null;
+
+        function init3D() {
+            const container = document.getElementById('canvas-container');
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x7dd3fc); // Sunny plaza sky blue
+            scene.fog = new THREE.FogExp2(0x7dd3fc, 0.015);
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(0, 1.6, 2.5); // Driver/Counter view looking outwards at Plaza
+            camera.lookAt(0, 1.1, -2);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.75);
+            scene.add(ambientLight);
+
+            const sunLight = new THREE.DirectionalLight(0xfff7ed, 1.3);
+            sunLight.position.set(8, 14, 6);
+            sunLight.castShadow = true;
+            sunLight.shadow.mapSize.width = 2048;
+            sunLight.shadow.mapSize.height = 2048;
+            sunLight.shadow.camera.near = 0.5;
+            sunLight.shadow.camera.far = 40;
+            sunLight.shadow.camera.left = -10;
+            sunLight.shadow.camera.right = 10;
+            sunLight.shadow.camera.top = 10;
+            sunLight.shadow.camera.bottom = -10;
+            scene.add(sunLight);
+
+            // Build Food Truck Counter & City Plaza Scene
+            buildFoodTruckScene();
+            buildPlazaEnvironment();
+
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function onWindowResize() {
+            if (!camera || !renderer) return;
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function buildFoodTruckScene() {
+            // Food Truck Counter Desktop
+            const counterGeo = new THREE.BoxGeometry(6, 0.1, 2);
+            const counterMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.3, metalness: 0.2 });
+            const counter = new THREE.Mesh(counterGeo, counterMat);
+            counter.position.set(0, 0.85, -0.5);
+            counter.receiveShadow = true;
+            scene.add(counter);
+
+            // Food Truck Awning / Canopy Roof (Striped Red & White)
+            const awningGroup = new THREE.Group();
+            awningGroup.position.set(0, 2.2, -0.8);
+
+            const numStripes = 12;
+            const stripeWidth = 5.8 / numStripes;
+            for (let i = 0; i < numStripes; i++) {
+                const color = (i % 2 === 0) ? 0xef4444 : 0xffffff;
+                const stripeGeo = new THREE.BoxGeometry(stripeWidth, 0.08, 1.2);
+                const stripeMat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.5 });
+                const stripe = new THREE.Mesh(stripeGeo, stripeMat);
+                stripe.position.x = -2.9 + (i * stripeWidth) + stripeWidth / 2;
+                stripe.rotation.x = 0.2; // Slight slant downwards
+                stripe.castShadow = true;
+                awningGroup.add(stripe);
+            }
+            scene.add(awningGroup);
+
+            // Food Truck Menu Board Banner
+            const bannerGeo = new THREE.BoxGeometry(2.4, 0.4, 0.05);
+            const bannerMat = new THREE.MeshStandardMaterial({ color: 0x0f172a });
+            const banner = new THREE.Mesh(bannerGeo, bannerMat);
+            banner.position.set(0, 2.35, -0.2);
+            scene.add(banner);
+
+            // Serving Plate
+            plateGroup = new THREE.Group();
+            plateGroup.position.set(0.6, 0.9, -0.6);
+
+            const plateGeo = new THREE.CylinderGeometry(0.9, 0.7, 0.05, 32);
+            const plateMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.1 });
+            const plate = new THREE.Mesh(plateGeo, plateMat);
+            plate.receiveShadow = true;
+            plate.castShadow = true;
+            plateGroup.add(plate);
+            scene.add(plateGroup);
+
+            // Cooking Grill Station
+            grillGroup = new THREE.Group();
+            grillGroup.position.set(-1.2, 0.9, -0.6);
+
+            const grillBaseGeo = new THREE.BoxGeometry(1.6, 0.08, 1.2);
+            const grillBaseMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.2 });
+            const grillBase = new THREE.Mesh(grillBaseGeo, grillBaseMat);
+            grillGroup.add(grillBase);
+
+            const grillSurfaceGeo = new THREE.BoxGeometry(1.5, 0.02, 1.1);
+            const grillSurfaceMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.9, roughness: 0.4 });
+            const grillSurface = new THREE.Mesh(grillSurfaceGeo, grillSurfaceMat);
+            grillSurface.position.y = 0.05;
+            grillGroup.add(grillSurface);
+
+            scene.add(grillGroup);
+
+            // NPC Container
+            npcGroup = new THREE.Group();
+            scene.add(npcGroup);
+        }
+
+        function buildPlazaEnvironment() {
+            // Plaza Paved Ground (Cobblestone Grid Tiles)
+            const plazaWidth = 30;
+            const plazaDepth = 25;
+            const groundGroup = new THREE.Group();
+            groundGroup.position.set(0, -0.01, -12);
+
+            // Base ground plane
+            const baseGeo = new THREE.PlaneGeometry(plazaWidth, plazaDepth);
+            const baseMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.8 });
+            const baseMesh = new THREE.Mesh(baseGeo, baseMat);
+            baseMesh.rotation.x = -Math.PI / 2;
+            baseMesh.receiveShadow = true;
+            groundGroup.add(baseMesh);
+
+            // Cobblestone Tile Grid overlay
+            const tileSize = 1.5;
+            const tileColors = [0xc0c6cf, 0x9ca3af, 0xd1d5db, 0xa1a1aa];
+            for (let x = -plazaWidth / 2 + 0.75; x < plazaWidth / 2; x += tileSize) {
+                for (let z = -plazaDepth / 2 + 0.75; z < plazaDepth / 2; z += tileSize) {
+                    if (Math.random() > 0.15) {
+                        const tileGeo = new THREE.BoxGeometry(tileSize - 0.05, 0.02, tileSize - 0.05);
+                        const c = tileColors[Math.floor(Math.random() * tileColors.length)];
+                        const tileMat = new THREE.MeshStandardMaterial({ color: c, roughness: 0.7 });
+                        const tile = new THREE.Mesh(tileGeo, tileMat);
+                        tile.position.set(x, 0.01, z);
+                        tile.receiveShadow = true;
+                        groundGroup.add(tile);
+                    }
+                }
+            }
+            scene.add(groundGroup);
+
+            // Central Plaza Fountain
+            const fountainGroup = new THREE.Group();
+            fountainGroup.position.set(0, 0, -8.5);
+
+            // Fountain Outer Basin
+            const basinGeo = new THREE.CylinderGeometry(2.2, 2.4, 0.5, 24);
+            const stoneMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.6 });
+            const basin = new THREE.Mesh(basinGeo, stoneMat);
+            basin.position.y = 0.25;
+            basin.castShadow = true;
+            basin.receiveShadow = true;
+            fountainGroup.add(basin);
+
+            // Fountain Water Surface
+            const waterGeo = new THREE.CylinderGeometry(2.0, 2.0, 0.1, 24);
+            const waterMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.1, transparent: true, opacity: 0.85 });
+            const water = new THREE.Mesh(waterGeo, waterMat);
+            water.position.y = 0.45;
+            fountainGroup.add(water);
+
+            // Fountain Center Pillar
+            const pillarGeo = new THREE.CylinderGeometry(0.5, 0.7, 1.2, 16);
+            const pillar = new THREE.Mesh(pillarGeo, stoneMat);
+            pillar.position.y = 0.8;
+            pillar.castShadow = true;
+            fountainGroup.add(pillar);
+
+            scene.add(fountainGroup);
+
+            // Plaza Trees & Planters around sides
+            const treePositions = [
+                { x: -5.5, z: -4 },
+                { x: 5.5, z: -4 },
+                { x: -6.5, z: -9 },
+                { x: 6.5, z: -9 }
+            ];
+
+            treePositions.forEach(pos => {
+                const planterGeo = new THREE.BoxGeometry(1.2, 0.4, 1.2);
+                const planter = new THREE.Mesh(planterGeo, stoneMat);
+                planter.position.set(pos.x, 0.2, pos.z);
+                planter.castShadow = true;
+                scene.add(planter);
+
+                // Tree Trunk
+                const trunkGeo = new THREE.CylinderGeometry(0.15, 0.22, 1.8, 8);
+                const trunkMat = new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.9 });
+                const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+                trunk.position.set(pos.x, 1.1, pos.z);
+                trunk.castShadow = true;
+                scene.add(trunk);
+
+                // Foliage Layers
+                const foliageMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.6 });
+                for (let j = 0; j < 3; j++) {
+                    const folGeo = new THREE.ConeGeometry(1.1 - j * 0.25, 1.0, 8);
+                    const fol = new THREE.Mesh(folGeo, foliageMat);
+                    fol.position.set(pos.x, 1.8 + j * 0.6, pos.z);
+                    fol.castShadow = true;
+                    scene.add(fol);
+                }
+            });
+
+            // Lamp Posts along Plaza
+            const lampPositions = [
+                { x: -3.5, z: -3 },
+                { x: 3.5, z: -3 },
+                { x: -4.0, z: -11 },
+                { x: 4.0, z: -11 }
+            ];
+
+            lampPositions.forEach(pos => {
+                const poleGeo = new THREE.CylinderGeometry(0.06, 0.08, 2.6, 12);
+                const poleMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8 });
+                const pole = new THREE.Mesh(poleGeo, poleMat);
+                pole.position.set(pos.x, 1.3, pos.z);
+                pole.castShadow = true;
+                scene.add(pole);
+
+                const lampGlobeGeo = new THREE.SphereGeometry(0.2, 16, 16);
+                const lampGlobeMat = new THREE.MeshStandardMaterial({
+                    color: 0xfef08a,
+                    emissive: 0xfde047,
+                    emissiveIntensity: 0.6
+                });
+                const globe = new THREE.Mesh(lampGlobeGeo, lampGlobeMat);
+                globe.position.set(pos.x, 2.6, pos.z);
+                scene.add(globe);
+            });
+
+            // Background Town Buildings along the back edge of the plaza
+            const buildingData = [
+                { x: -9, color: 0xf87171, h: 6, w: 4 },
+                { x: -4.5, color: 0xfbbf24, h: 7, w: 4.5 },
+                { x: 0, color: 0x60a5fa, h: 8, w: 4 },
+                { x: 4.5, color: 0x34d399, h: 6.5, w: 4.5 },
+                { x: 9, color: 0xa78bfa, h: 5.5, w: 4 }
+            ];
+
+            buildingData.forEach(b => {
+                const bGeo = new THREE.BoxGeometry(b.w, b.h, 4);
+                const bMat = new THREE.MeshStandardMaterial({ color: b.color, roughness: 0.5 });
+                const bMesh = new THREE.Mesh(bGeo, bMat);
+                bMesh.position.set(b.x, b.h / 2, -15);
+                bMesh.castShadow = true;
+                scene.add(bMesh);
+
+                // Windows on buildings
+                for (let wy = 1.5; wy < b.h - 1; wy += 1.4) {
+                    for (let wx = -b.w / 3; wx <= b.w / 3; wx += b.w / 2.5) {
+                        const winGeo = new THREE.PlaneGeometry(0.6, 0.8);
+                        const winMat = new THREE.MeshStandardMaterial({ color: 0xe0f2fe, roughness: 0.1 });
+                        const win = new THREE.Mesh(winGeo, winMat);
+                        win.position.set(b.x + wx, wy, -12.98);
+                        scene.add(win);
+                    }
+                }
+            });
+        }
+
+        function createNPC(type) {
+            const group = new THREE.Group();
+
+            // Skin Tone variations
+            const skinTones = [0xfed7aa, 0xfcd34d, 0xd97706, 0x78350f, 0xffedd5];
+            const skinColor = skinTones[Math.floor(Math.random() * skinTones.length)];
+
+            // Clothing Color variations
+            const shirtColors = [0xef4444, 0x3b82f6, 0x10b981, 0x8b5cf6, 0xf59e0b, 0xec4899, 0x06b6d4];
+            const shirtColor = shirtColors[Math.floor(Math.random() * shirtColors.length)];
+            const pantsColor = 0x1e293b;
+
+            // Hair Colors
+            const hairColors = [0x1e1b4b, 0x451a03, 0xd97706, 0xb91c1c, 0xfef08a];
+            const hairColor = hairColors[Math.floor(Math.random() * hairColors.length)];
+
+            // Dimension Scaling according to Archetype
+            let scale = 1.0;
+            let headRadius = 0.25;
+            let torsoHeight = 0.8;
+            let legHeight = 0.6;
+
+            if (type === 'man') {
+                scale = 1.0;
+            } else if (type === 'woman') {
+                scale = 0.92;
+            } else if (type === 'boy') {
+                scale = 0.68; // Kid boy
+            } else if (type === 'girl') {
+                scale = 0.62; // Kid girl
+            }
+
+            // Head Mesh
+            const headGeo = new THREE.SphereGeometry(headRadius, 20, 20);
+            const headMat = new THREE.MeshStandardMaterial({ color: skinColor, roughness: 0.6 });
+            const head = new THREE.Mesh(headGeo, headMat);
+            head.position.y = legHeight + torsoHeight + headRadius;
+            group.add(head);
+
+            // Face Container attached to head
+            const faceGroup = new THREE.Group();
+            faceGroup.position.set(0, legHeight + torsoHeight + headRadius, headRadius * 0.85);
+
+            // Eyes (Whites + Pupils)
+            const eyeWhiteGeo = new THREE.SphereGeometry(0.045, 12, 12);
+            const eyeWhiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff });
+            const pupilGeo = new THREE.SphereGeometry(0.022, 12, 12);
+            const pupilMat = new THREE.MeshStandardMaterial({ color: 0x0f172a });
+
+            // Left Eye
+            const eyeL = new THREE.Mesh(eyeWhiteGeo, eyeWhiteMat);
+            eyeL.position.set(-0.08, 0.03, 0);
+            const pupilL = new THREE.Mesh(pupilGeo, pupilMat);
+            pupilL.position.set(-0.08, 0.03, 0.03);
+            faceGroup.add(eyeL);
+            faceGroup.add(pupilL);
+
+            // Right Eye
+            const eyeR = new THREE.Mesh(eyeWhiteGeo, eyeWhiteMat);
+            eyeR.position.set(0.08, 0.03, 0);
+            const pupilR = new THREE.Mesh(pupilGeo, pupilMat);
+            pupilR.position.set(0.08, 0.03, 0.03);
+            faceGroup.add(eyeR);
+            faceGroup.add(pupilR);
+
+            // Eyebrows
+            const eyebrowGeo = new THREE.BoxGeometry(0.06, 0.015, 0.015);
+            const eyebrowMat = new THREE.MeshStandardMaterial({ color: hairColor });
+
+            const eyebrowL = new THREE.Mesh(eyebrowGeo, eyebrowMat);
+            eyebrowL.position.set(-0.08, 0.09, 0.02);
+            eyebrowL.rotation.z = 0.15;
+            faceGroup.add(eyebrowL);
+
+            const eyebrowR = new THREE.Mesh(eyebrowGeo, eyebrowMat);
+            eyebrowR.position.set(0.08, 0.09, 0.02);
+            eyebrowR.rotation.z = -0.15;
+            faceGroup.add(eyebrowR);
+
+            // Expressive 3D Mouth (Curved Arc)
+            const mouthGeo = new THREE.TorusGeometry(0.05, 0.012, 8, 16, Math.PI);
+            const mouthMat = new THREE.MeshStandardMaterial({ color: 0x9f1239 });
+            const mouth = new THREE.Mesh(mouthGeo, mouthMat);
+            mouth.position.set(0, -0.07, 0.01);
+            mouth.rotation.x = Math.PI; // Smile direction
+            faceGroup.add(mouth);
+
+            // Rosy Cheeks for kids and woman
+            if (type === 'girl' || type === 'boy' || type === 'woman') {
+                const cheekGeo = new THREE.CircleGeometry(0.03, 12);
+                const cheekMat = new THREE.MeshBasicMaterial({ color: 0xf43f5e, transparent: true, opacity: 0.4 });
+                const cheekL = new THREE.Mesh(cheekGeo, cheekMat);
+                cheekL.position.set(-0.11, -0.03, 0.02);
+                const cheekR = new THREE.Mesh(cheekGeo, cheekMat);
+                cheekR.position.set(0.11, -0.03, 0.02);
+                faceGroup.add(cheekL);
+                faceGroup.add(cheekR);
+            }
+
+            group.add(faceGroup);
+
+            // Distinct Hairstyles / Accessories based on Type
+            const hairMat = new THREE.MeshStandardMaterial({ color: hairColor, roughness: 0.4 });
+
+            if (type === 'man') {
+                // Short Spiky / Neat Hair Cap
+                const hairGeo = new THREE.SphereGeometry(headRadius * 1.03, 16, 16, 0, Math.PI * 2, 0, Math.PI * 0.55);
+                const hair = new THREE.Mesh(hairGeo, hairMat);
+                hair.position.y = legHeight + torsoHeight + headRadius + 0.02;
+                group.add(hair);
+            } else if (type === 'woman') {
+                // Stylish Long Hair + High Bun/Ponytail
+                const hairGeo = new THREE.SphereGeometry(headRadius * 1.05, 16, 16, 0, Math.PI * 2, 0, Math.PI * 0.65);
+                const hair = new THREE.Mesh(hairGeo, hairMat);
+                hair.position.y = legHeight + torsoHeight + headRadius + 0.02;
+                group.add(hair);
+
+                // Ponytail
+                const ponyGeo = new THREE.CylinderGeometry(0.06, 0.1, 0.3, 12);
+                const pony = new THREE.Mesh(ponyGeo, hairMat);
+                pony.position.set(0, legHeight + torsoHeight + headRadius + 0.1, -0.22);
+                pony.rotation.x = -0.5;
+                group.add(pony);
+            } else if (type === 'boy') {
+                // Backwards Baseball Cap
+                const capGeo = new THREE.SphereGeometry(headRadius * 1.04, 16, 16, 0, Math.PI * 2, 0, Math.PI * 0.5);
+                const capMat = new THREE.MeshStandardMaterial({ color: shirtColor });
+                const cap = new THREE.Mesh(capGeo, capMat);
+                cap.position.y = legHeight + torsoHeight + headRadius + 0.03;
+                group.add(cap);
+
+                const visorGeo = new THREE.BoxGeometry(0.18, 0.02, 0.2);
+                const visor = new THREE.Mesh(visorGeo, capMat);
+                visor.position.set(0, legHeight + torsoHeight + headRadius + 0.05, -0.22);
+                group.add(visor);
+            } else if (type === 'girl') {
+                // Twin Pigtails with Bows
+                const hairGeo = new THREE.SphereGeometry(headRadius * 1.04, 16, 16, 0, Math.PI * 2, 0, Math.PI * 0.6);
+                const hair = new THREE.Mesh(hairGeo, hairMat);
+                hair.position.y = legHeight + torsoHeight + headRadius + 0.02;
+                group.add(hair);
+
+                // Pigtails on both sides
+                const ptGeo = new THREE.SphereGeometry(0.09, 12, 12);
+                const ptL = new THREE.Mesh(ptGeo, hairMat);
+                ptL.position.set(-0.24, legHeight + torsoHeight + headRadius + 0.05, -0.05);
+                const ptR = new THREE.Mesh(ptGeo, hairMat);
+                ptR.position.set(0.24, legHeight + torsoHeight + headRadius + 0.05, -0.05);
+                group.add(ptL);
+                group.add(ptR);
+            }
+
+            // Torso / Shirt
+            const shirtMat = new THREE.MeshStandardMaterial({ color: shirtColor });
+            const torsoGeo = new THREE.CylinderGeometry(0.22, 0.25, torsoHeight, 16);
+            const torso = new THREE.Mesh(torsoGeo, shirtMat);
+            torso.position.y = legHeight + torsoHeight / 2;
+            torso.castShadow = true;
+            group.add(torso);
+
+            // Arms
+            const armGeo = new THREE.CylinderGeometry(0.06, 0.06, torsoHeight * 0.85, 12);
+            const armL = new THREE.Mesh(armGeo, shirtMat);
+            armL.position.set(-0.3, legHeight + torsoHeight / 2 - 0.05, 0);
+            armL.rotation.z = 0.2;
+            const armR = new THREE.Mesh(armGeo, shirtMat);
+            armR.position.set(0.3, legHeight + torsoHeight / 2 - 0.05, 0);
+            armR.rotation.z = -0.2;
+            group.add(armL);
+            group.add(armR);
+
+            // Legs / Pants
+            const pantsMat = new THREE.MeshStandardMaterial({ color: pantsColor });
+            const legGeo = new THREE.CylinderGeometry(0.09, 0.08, legHeight, 12);
+
+            const legL = new THREE.Mesh(legGeo, pantsMat);
+            legL.position.set(-0.12, legHeight / 2, 0);
+            legL.castShadow = true;
+
+            const legR = new THREE.Mesh(legGeo, pantsMat);
+            legR.position.set(0.12, legHeight / 2, 0);
+            legR.castShadow = true;
+
+            group.add(legL);
+            group.add(legR);
+
+            // Apply global scale factor for character type
+            group.scale.set(scale, scale, scale);
+
+            return {
+                group: group,
+                mouth: mouth,
+                eyebrowL: eyebrowL,
+                eyebrowR: eyebrowR,
+                type: type
+            };
+        }
+
+        function spawnCustomer() {
+            if (activeNPCMesh) {
+                scene.remove(activeNPCMesh);
+                activeNPCMesh = null;
+                activeNPCData = null;
+            }
+
+            // Pick Random NPC Archetype
+            const archetypes = ['man', 'woman', 'boy', 'girl'];
+            const chosenType = archetypes[Math.floor(Math.random() * archetypes.length)];
+
+            const npcObj = createNPC(chosenType);
+            activeNPCMesh = npcObj.group;
+            activeNPCData = npcObj;
+
+            activeNPCMesh.position.set(0, 0, -5.5); // Spawn in central plaza
+            scene.add(activeNPCMesh);
+
+            // Animate walking up to the food truck window
+            let posZ = -5.5;
+            const walkInterval = setInterval(() => {
+                posZ += 0.06;
+                activeNPCMesh.position.z = posZ;
+                activeNPCMesh.position.y = Math.abs(Math.sin(posZ * 8)) * 0.08;
+                if (posZ >= -1.8) {
+                    clearInterval(walkInterval);
+                    activeNPCMesh.position.y = 0;
+                    generateNewOrder();
+                }
+            }, 30);
+        }
+
+        function generateNewOrder() {
+            const possibleIngredients = ['patty', 'cheese', 'lettuce', 'tomato', 'pickles', 'bacon'];
+            const count = Math.floor(Math.random() * 3) + 2; // 2 to 4 random fillings
+            
+            let recipe = ['bun_bottom'];
+            for (let i = 0; i < count; i++) {
+                const item = possibleIngredients[Math.floor(Math.random() * possibleIngredients.length)];
+                recipe.push(item);
+            }
+            recipe.push('bun_top');
+
+            gameState.currentOrder = recipe;
+            gameState.patience = 100;
+
+            // Render order UI
+            const orderContainer = document.getElementById('order-items');
+            orderContainer.innerHTML = '';
+
+            recipe.forEach(ingKey => {
+                const tag = document.createElement('div');
+                tag.className = 'order-tag';
+                tag.innerText = INGREDIENTS[ingKey].name;
+                orderContainer.appendChild(tag);
+            });
+
+            document.getElementById('order-bubble').classList.add('active');
+        }
+
+        function addRawPattyToGrill() {
+            if (gameState.grillPatties.length >= 3) {
+                showToast('Grill is full!');
+                return;
+            }
+
+            audio.init();
+            audio.playSizzle();
+
+            const slots = [
+                { x: -1.5, z: -0.8 },
+                { x: -1.2, z: -0.5 },
+                { x: -0.9, z: -0.8 }
+            ];
+
+            const slot = slots[gameState.grillPatties.length];
+
+            const pattyGeo = new THREE.CylinderGeometry(0.25, 0.25, 0.06, 16);
+            const pattyMat = new THREE.MeshStandardMaterial({ color: 0xc05621 }); // Raw reddish brown
+            const mesh = new THREE.Mesh(pattyGeo, pattyMat);
+            mesh.position.set(slot.x, 0.98, slot.z);
+            scene.add(mesh);
+
+            const pattyObj = {
+                mesh: mesh,
+                cookProgress: 0,
+                isCooked: false,
+                isBurnt: false
+            };
+
+            gameState.grillPatties.push(pattyObj);
+
+            // Grill cooking process
+            const timer = setInterval(() => {
+                pattyObj.cookProgress += 10;
+                audio.playSizzle();
+
+                if (pattyObj.cookProgress >= 50 && !pattyObj.isCooked) {
+                    pattyObj.isCooked = true;
+                    mesh.material.color.setHex(0x5c2c16); // Cooked dark brown
+                } else if (pattyObj.cookProgress >= 100) {
+                    pattyObj.isBurnt = true;
+                    mesh.material.color.setHex(0x18181b); // Burnt black
+                    clearInterval(timer);
+                }
+            }, 1000);
+
+            // Click patty to pick up when ready
+            mesh.userData = { pattyObj, timer };
+        }
+
+        // Raycasting for Grill Patties
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        window.addEventListener('pointerdown', (e) => {
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(gameState.grillPatties.map(p => p.mesh));
+
+            if (intersects.length > 0) {
+                const clickedMesh = intersects[0].object;
+                const idx = gameState.grillPatties.findIndex(p => p.mesh === clickedMesh);
+
+                if (idx !== -1) {
+                    const pattyObj = gameState.grillPatties[idx];
+                    clearInterval(pattyObj.timer);
+
+                    scene.remove(pattyObj.mesh);
+                    gameState.grillPatties.splice(idx, 1);
+
+                    if (pattyObj.isBurnt) {
+                        showToast('Burnt patty discarded!');
+                        audio.playFail();
+                    } else if (pattyObj.isCooked) {
+                        addIngredient('patty');
+                    } else {
+                        showToast('Patty is undercooked!');
+                        audio.playFail();
+                    }
+                }
+            }
+        });
+
+        function addIngredient(ingKey) {
+            audio.init();
+            audio.playSnap();
+
+            const ingData = INGREDIENTS[ingKey];
+            const currentStackHeight = gameState.plateStack.reduce((acc, item) => acc + item.height, 0);
+
+            let mesh;
+            if (ingKey.includes('bun')) {
+                const geo = new THREE.CylinderGeometry(ingData.radius * 0.35, ingData.radius * 0.35, ingData.height, 24);
+                const mat = new THREE.MeshStandardMaterial({ color: ingData.color, roughness: 0.5 });
+                mesh = new THREE.Mesh(geo, mat);
+            } else if (ingKey === 'cheese') {
+                const geo = new THREE.BoxGeometry(ingData.radius * 0.7, ingData.height, ingData.radius * 0.7);
+                const mat = new THREE.MeshStandardMaterial({ color: ingData.color, roughness: 0.3 });
+                mesh = new THREE.Mesh(geo, mat);
+            } else {
+                const geo = new THREE.CylinderGeometry(ingData.radius * 0.35, ingData.radius * 0.35, ingData.height, 16);
+                const mat = new THREE.MeshStandardMaterial({ color: ingData.color, roughness: 0.4 });
+                mesh = new THREE.Mesh(geo, mat);
+            }
+
+            const targetY = 0.05 + currentStackHeight + ingData.height / 2;
+            mesh.position.set(0, targetY + 0.3, 0); // Start higher for drop animation
+            plateGroup.add(mesh);
+
+            // Animate Drop onto plate
+            let currentY = targetY + 0.3;
+            const dropAnim = setInterval(() => {
+                currentY -= 0.05;
+                if (currentY <= targetY) {
+                    mesh.position.y = targetY;
+                    clearInterval(dropAnim);
+                } else {
+                    mesh.position.y = currentY;
+                }
+            }, 16);
+
+            gameState.plateStack.push({ key: ingKey, height: ingData.height, mesh: mesh });
+        }
+
+        function trashPlate() {
+            audio.init();
+            audio.playFail();
+
+            gameState.plateStack.forEach(item => plateGroup.remove(item.mesh));
+            gameState.plateStack = [];
+            showToast('Plate cleared');
+        }
+
+        function serveOrder() {
+            audio.init();
+            if (!gameState.currentOrder) {
+                showToast('No active customer!');
+                return;
+            }
+
+            const currentPlateKeys = gameState.plateStack.map(i => i.key);
+            const isMatch = JSON.stringify(currentPlateKeys) === JSON.stringify(gameState.currentOrder);
+
+            if (isMatch) {
+                audio.playCoin();
+                const tip = Math.floor(gameState.patience / 10);
+                const earned = 12 + tip;
+
+                gameState.earnings += earned;
+                gameState.servedCount += 1;
+
+                document.getElementById('earnings-val').innerText = `$${gameState.earnings}`;
+                document.getElementById('served-val').innerText = gameState.servedCount;
+
+                showToast(`Perfect Burger! Earned +$${earned}`);
+
+                // Clear Plate & Reset Customer
+                trashPlate();
+                document.getElementById('order-bubble').classList.remove('active');
+                gameState.currentOrder = null;
+
+                setTimeout(spawnCustomer, 1500);
+            } else {
+                audio.playFail();
+                showToast('Incorrect Burger Recipe!');
+            }
+        }
+
+        function gameLoop() {
+            requestAnimationFrame(gameLoop);
+
+            // Patience Decay and Dynamic Facial Expression
+            if (gameState.currentOrder && gameState.patience > 0) {
+                gameState.patience -= 0.04;
+                const pBar = document.getElementById('patience-bar');
+                pBar.style.width = `${gameState.patience}%`;
+
+                // Update NPC Facial Expressions based on patience level
+                if (activeNPCData) {
+                    if (gameState.patience < 30) {
+                        pBar.style.backgroundColor = '#ef4444';
+                        // Angry / Impatient Face Expression
+                        activeNPCData.mouth.rotation.x = 0; // Frown arc
+                        activeNPCData.eyebrowL.rotation.z = -0.3;
+                        activeNPCData.eyebrowR.rotation.z = 0.3;
+                    } else if (gameState.patience < 65) {
+                        pBar.style.backgroundColor = '#facc15';
+                        // Neutral / Waiting Face Expression
+                        activeNPCData.mouth.rotation.x = Math.PI / 2;
+                        activeNPCData.eyebrowL.rotation.z = 0;
+                        activeNPCData.eyebrowR.rotation.z = 0;
+                    } else {
+                        pBar.style.backgroundColor = '#22c55e';
+                        // Happy Smile Face Expression
+                        activeNPCData.mouth.rotation.x = Math.PI;
+                        activeNPCData.eyebrowL.rotation.z = 0.15;
+                        activeNPCData.eyebrowR.rotation.z = -0.15;
+                    }
+                }
+
+                if (gameState.patience <= 0) {
+                    // Customer left frustrated
+                    audio.playFail();
+                    showToast('Customer left frustrated!');
+                    document.getElementById('order-bubble').classList.remove('active');
+                    gameState.currentOrder = null;
+                    trashPlate();
+                    setTimeout(spawnCustomer, 2000);
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        window.onload = function() {
+            init3D();
+            gameLoop();
+            spawnCustomer();
+        };
+    </script>
+</body>
+</html>
